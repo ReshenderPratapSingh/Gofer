@@ -1,0 +1,15 @@
+# Protect dependencies and environment secrets for ALL nested services
+node_modules/
+**/node_modules/
+.env
+**/.env
+.env.*
+
+# Standard ignores
+dist/
+.DS_Store
+*.log
+
+.agents/
+.claude/
+.windsurf/
