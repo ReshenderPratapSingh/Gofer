@@ -4,10 +4,65 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  // url      = env("DATABASE_URL")  // URL is intentionally removed for Prisma 7
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  priceInPaise Int
+  imageUrl     String?
+  inStock      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  orders       Order[]
+}
+
+enum OrderStatus {
+  CREATED
+  PAID
+  FAILED
+  REFUSED
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  productId         String
+  product           Product     @relation(fields: [productId], references: [id])
+  status            OrderStatus @default(CREATED)
+  amountInPaise     Int
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  auditLogs         AuditLog[]
+}
+
+enum ActionType {
+  SEARCH
+  PLACE_ORDER
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  REFUSAL
+  APPROVAL_REQUESTED
+  APPROVAL_GRANTED
+  APPROVAL_DENIED
+}
+
+model AuditLog {
+  id        String     @id @default(cuid())
+  
+  // COMPLETELY OPTIONAL: Allows us to log refusals/searches without an actual Order
+  orderId   String?
+  order     Order?     @relation(fields: [orderId], references: [id])
+  
+  action    ActionType 
+  reasoning String     // The plain-language "why" from the AI (Crucial for judging)
+  metadata  Json?
+  createdAt DateTime   @default(now())
 }
