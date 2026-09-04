@@ -189,9 +189,12 @@ async function run() {
     // screen first. The real callback_url redirect only happens after those.
     await new Promise(r => setTimeout(r, 1500));
 
-    console.log('5b. Handling "Save card?" prompt (if shown)...');
-    const declinedSave = await clickButtonByText(frame, 'No, thanks');
-    if (declinedSave) await new Promise(r => setTimeout(r, 1000));
+    console.log('5b. Handling "Save card?" prompts (if shown)...');
+    const declinedSave1 = await clickButtonByText(frame, 'No, thanks');
+    if (declinedSave1) await new Promise(r => setTimeout(r, 1000));
+    
+    const declinedSave2 = await clickButtonByText(frame, 'Maybe later');
+    if (declinedSave2) await new Promise(r => setTimeout(r, 1000));
 
     console.log('5c. Handling OTP screen (if shown)...');
     const otpField = await frame.$('input[placeholder*="OTP" i]');
