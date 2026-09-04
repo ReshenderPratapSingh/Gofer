@@ -81,8 +81,20 @@ async function debugDump(page, frame, label) {
 async function clickButtonByText(frame, text) {
   const buttons = await frame.$$('button');
   for (const btn of buttons) {
-    const label = await frame.evaluate(el => el.textContent.trim(), btn);
-    if (label === text) { await btn.click(); return true; }
+    const info = await frame.evaluate(el => {
+      const rect = el.getBoundingClientRect();
+      return { text: el.textContent.trim(), visible: rect.width > 0 && rect.height > 0 && !el.disabled };
+    }, btn);
+    if (info.text === text && info.visible) {
+      try {
+        await btn.click();
+      } catch (e) {
+        // Puppeteer's clickable-point check can be too strict for a button
+        // mid-transition; fall back to a raw in-page DOM click.
+        await btn.evaluate(node => node.click());
+      }
+      return true;
+    }
   }
   return false;
 }
