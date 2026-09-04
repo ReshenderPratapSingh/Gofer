@@ -27,7 +27,7 @@ const TEST_CARD_NAME = 'Rohan Test';
 // and, if none hit, dumps the real markup to a file instead of failing
 // blind — so a miss costs you one run, not another blind guess.
 const NUMBER_SELECTORS = ['input[name="card[number]"]', 'input#card_number', 'input[placeholder*="Card Number" i]', 'input[autocomplete="cc-number"]'];
-const EXPIRY_SELECTORS = ['input[name="card[expiry]"]', 'input#card_expiry', 'input[placeholder*="Expiry" i]', 'input[autocomplete="cc-exp"]'];
+const EXPIRY_SELECTORS = ['input[name="card[expiry]"]', 'input#card_expiry', 'input[placeholder*="MM" i]', 'input[placeholder*="Expiry" i]', 'input[autocomplete="cc-exp"]'];
 const CVV_SELECTORS = ['input[name="card[cvv]"]', 'input#card_cvv', 'input[placeholder*="CVV" i]', 'input[autocomplete="cc-csc"]'];
 const NAME_SELECTORS = ['input[name="card[name]"]', 'input#card_name', 'input[placeholder*="Name on Card" i]', 'input[autocomplete="cc-name"]'];
 const PAY_BUTTON_SELECTORS = ['button[type="submit"]', 'button.razorpay-payment-button', '#footer button'];
@@ -115,7 +115,7 @@ async function run() {
     const contactInput = await frame.$('input[name="contact"]');
     if (contactInput) {
       await contactInput.click({ clickCount: 3 }); // clear any stale value first
-      await contactInput.type('9999999999', { delay: 50 });
+      await contactInput.type('9876543211', { delay: 50 });
     
       const clicked = await clickButtonByText(frame, 'Continue');
       if (!clicked) {
@@ -138,6 +138,15 @@ async function run() {
       console.log('   No contact-details screen shown — continuing.');
     }
 
+    console.log('3c. Selecting the Cards payment option...');
+    try {
+      await frame.waitForSelector('::-p-text(Cards)', { timeout: 8000 });
+      await frame.click('::-p-text(Cards)');
+      await new Promise(r => setTimeout(r, 1000));
+    } catch (e) {
+      console.log('   No separate "Cards" option screen shown — continuing directly.');
+    }
+
     console.log('4. Filling card details...');
     const number = await findFirstMatch(frame, NUMBER_SELECTORS);
     if (!number) { await debugDump(page, frame, 'number-field'); throw new Error('Could not find card number field — see debug-number-field-frame.html'); }
@@ -155,7 +164,13 @@ async function run() {
     if (name) await name.el.type(TEST_CARD_NAME, { delay: 50 }); // optional on some forms, don't fail if absent
 
     console.log('5. Submitting payment...');
-    const payButton = await findFirstMatch(frame, PAY_BUTTON_SELECTORS);
+    async function findSubmitButton(frame) {
+      const found = await findFirstMatch(frame, PAY_BUTTON_SELECTORS, 3000);
+      if (found) return found;
+      const byText = await frame.$('::-p-text(Continue)') || await frame.$('::-p-text(Pay)');
+      return byText ? { el: byText, sel: '::-p-text()' } : null;
+    }
+    const payButton = await findSubmitButton(frame);
     if (!payButton) { await debugDump(page, frame, 'pay-button'); throw new Error('Could not find the pay/submit button — see debug-pay-button-frame.html'); }
 
     await Promise.all([
@@ -176,9 +191,10 @@ async function run() {
   } catch (err) {
     console.error('\n❌ Headless execution failed:', err.message);
   } finally {
-    console.log('\nClosing browser in 5 seconds...');
-    await new Promise(r => setTimeout(r, 5000));
-    await browser.close();
+    console.log('\n⏸  Paused — browser left open. Manually click into the mobile number field,');
+    console.log('   clear it, and type 9876543211 yourself with your own keyboard/mouse.');
+    console.log('   Press Ctrl+C in this terminal when you\'re done looking.');
+    await new Promise(() => {}); // hang forever, don't close
   }
 }
 

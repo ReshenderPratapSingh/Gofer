@@ -103,7 +103,7 @@ function renderCheckoutPage(order) {
       prefill: {
         name: "Rohan Test",
         email: "rohan@example.com",
-        contact: "9999999999"
+        contact: "9876543210"
       }
     };
     var rzp1 = new Razorpay(options);
