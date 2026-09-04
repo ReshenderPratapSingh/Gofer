@@ -99,6 +99,18 @@ async function clickButtonByText(frame, text) {
   return false;
 }
 
+async function findFieldInAnyFrame(page, selector, timeoutMs = 10000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    for (const f of page.frames()) {
+      const el = await f.$(selector).catch(() => null);
+      if (el) return { frame: f, el };
+    }
+    await new Promise(r => setTimeout(r, 300));
+  }
+  return null;
+}
+
 async function run() {
   console.log('1. Launching browser (headless mode off for debugging)...');
   const browser = await puppeteer.launch({
@@ -197,25 +209,21 @@ async function run() {
     if (declinedSave2) await new Promise(r => setTimeout(r, 1000));
 
     console.log('5c. Handling OTP screen (if shown)...');
-    const otpField = await frame.$('input[placeholder*="OTP" i]');
-    if (otpField) {
-      await otpField.type('1234', { delay: 50 }); // test mode: OTP content isn't validated, any value completes the flow
-      const otpSubmitted = (await clickButtonByText(frame, 'Continue')) || (await clickButtonByText(frame, 'Verify'));
+    const otpMatch = await findFieldInAnyFrame(page, 'input[placeholder*="OTP" i]', 10000);
+    if (otpMatch) {
+      await otpMatch.el.type('123456', { delay: 50 }); // test mode: content isn't validated, any value completes the flow
+      const otpSubmitted =
+        (await clickButtonByText(otpMatch.frame, 'Continue')) ||
+        (await clickButtonByText(otpMatch.frame, 'Submit')) ||
+        (await clickButtonByText(otpMatch.frame, 'Verify'));
       if (!otpSubmitted) {
-        await debugDump(page, frame, 'otp-submit-button');
+        await debugDump(page, otpMatch.frame, 'otp-submit-button');
         throw new Error('OTP field appeared but no submit button was found — see debug-otp-submit-button-frame.html');
       }
+      await new Promise(r => setTimeout(r, 1500));
     } else {
       console.log('   No OTP screen shown — continuing.');
     }
-
-    console.log('6. Waiting for callback_url navigation...');
-    await page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 });
-
-    const finalUrl = page.url();
-    const bodyText = await page.evaluate(() => document.body.innerText);
-    console.log('\n7. Landed on callback page:', finalUrl);
-    console.log(bodyText);
     
   } catch (err) {
     console.error('\n❌ Headless execution failed:', err.message);
