@@ -58,6 +58,8 @@ async function waitForRazorpayFrame(page, timeoutMs = 20000) {
 
 async function debugDump(page, frame, label) {
   try {
+    const dir = path.join(__dirname, 'debug');
+    fs.mkdirSync(dir, { recursive: true });
     // This dynamically targets automation/debug/ relative to this script
     const screenshotPath = path.join(__dirname, 'debug', `debug-${label}.png`);
     const htmlPath = path.join(__dirname, 'debug', `debug-${label}-frame.html`);
@@ -128,7 +130,7 @@ async function run() {
       const otpInput = await frame.$('input[name="otp"], input[data-testid="otp"]');
       if (otpInput) {
         await otpInput.type('0000', { delay: 50 });
-        await (clickButtonByText(frame, 'Continue') || clickButtonByText(frame, 'Verify'));
+        await ((await clickButtonByText(frame, 'Continue')) || (await clickButtonByText(frame, 'Verify')));
         await new Promise(r => setTimeout(r, 1500));
       }
     } else {
