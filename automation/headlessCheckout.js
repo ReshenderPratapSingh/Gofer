@@ -14,6 +14,7 @@
 
 const puppeteer = require('puppeteer');
 const fs = require('fs');
+const path = require('path'); // 1. Add this import at the top
 
 const BRIDGE_URL = process.env.BRIDGE_URL || 'http://localhost:4000/checkout/test';
 const TEST_CARD_NUMBER = '4111111111111111';
@@ -55,15 +56,21 @@ async function waitForRazorpayFrame(page, timeoutMs = 20000) {
   return null;
 }
 
+// 2. Update this function to explicitly map paths to the debug directory
 async function debugDump(page, frame, label) {
   try {
-    await page.screenshot({ path: `debug-${label}.png`, fullPage: true });
+    // This dynamically targets automation/debug/ relative to this script
+    const screenshotPath = path.join(__dirname, 'debug', `debug-${label}.png`);
+    const htmlPath = path.join(__dirname, 'debug', `debug-${label}-frame.html`);
+
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+    
     if (frame) {
       const html = await frame.content();
-      fs.writeFileSync(`debug-${label}-frame.html`, html);
-      console.log(`\n🔎 Saved debug-${label}.png and debug-${label}-frame.html — open the html and search for "input" to find the real field names/ids.`);
+      fs.writeFileSync(htmlPath, html);
+      console.log(`\n🔎 Saved debug-${label}.png and debug-${label}-frame.html to automation/debug/`);
     } else {
-      console.log(`\n🔎 Saved debug-${label}.png`);
+      console.log(`\n🔎 Saved debug-${label}.png to automation/debug/`);
     }
   } catch (e) {
     console.log('Could not save debug artifacts:', e.message);
@@ -92,6 +99,44 @@ async function run() {
       throw new Error('Razorpay iframe never attached — the modal likely never opened. Check the bridge page for a Razorpay init error (open BRIDGE_URL in a real browser tab to see it).');
     }
     console.log(`   Found iframe: ${frame.url()}`);
+
+    async function clickButtonByText(frame, text) {
+      const buttons = await frame.$$('button');
+      for (const btn of buttons) {
+        const label = await frame.evaluate(el => el.textContent.trim(), btn);
+        if (label === text) { await btn.click(); return true; }
+      }
+      return false;
+    }
+    
+    // ...inside run(), right after "Found iframe: ..." and before step 4:
+    
+    console.log('3b. Handling contact-details screen (if shown)...');
+    const contactInput = await frame.$('input[name="contact"]');
+    if (contactInput) {
+      await contactInput.click({ clickCount: 3 }); // clear any stale value first
+      await contactInput.type('9999999999', { delay: 50 });
+    
+      const clicked = await clickButtonByText(frame, 'Continue');
+      if (!clicked) {
+        await debugDump(page, frame, 'no-continue-button');
+        throw new Error('Contact form appeared but no Continue button was found — see debug-no-continue-button-frame.html');
+      }
+    
+      await new Promise(r => setTimeout(r, 1500)); // let the SPA transition screens
+    
+      // Best-effort, UNVERIFIED: some flows add a mobile-OTP step after Continue.
+      // Test mode usually doesn't send a real SMS and often accepts any code —
+      // but I haven't seen this fire, so if it blocks you, send me the dump.
+      const otpInput = await frame.$('input[name="otp"], input[data-testid="otp"]');
+      if (otpInput) {
+        await otpInput.type('0000', { delay: 50 });
+        await (clickButtonByText(frame, 'Continue') || clickButtonByText(frame, 'Verify'));
+        await new Promise(r => setTimeout(r, 1500));
+      }
+    } else {
+      console.log('   No contact-details screen shown — continuing.');
+    }
 
     console.log('4. Filling card details...');
     const number = await findFirstMatch(frame, NUMBER_SELECTORS);
