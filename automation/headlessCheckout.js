@@ -14,10 +14,10 @@
 
 const puppeteer = require('puppeteer');
 const fs = require('fs');
-const path = require('path'); // 1. Add this import at the top
+const path = require('path');
 
 const BRIDGE_URL = process.env.BRIDGE_URL || 'http://localhost:4000/checkout/test';
-const TEST_CARD_NUMBER = '4111111111111111';
+const TEST_CARD_NUMBER = '5267318187975449';
 const TEST_CARD_EXPIRY = '12/30';
 const TEST_CARD_CVV = '123';
 const TEST_CARD_NAME = 'Rohan Test';
@@ -56,7 +56,6 @@ async function waitForRazorpayFrame(page, timeoutMs = 20000) {
   return null;
 }
 
-// 2. Update this function to explicitly map paths to the debug directory
 async function debugDump(page, frame, label) {
   try {
     // This dynamically targets automation/debug/ relative to this script
@@ -75,6 +74,15 @@ async function debugDump(page, frame, label) {
   } catch (e) {
     console.log('Could not save debug artifacts:', e.message);
   }
+}
+
+async function clickButtonByText(frame, text) {
+  const buttons = await frame.$$('button');
+  for (const btn of buttons) {
+    const label = await frame.evaluate(el => el.textContent.trim(), btn);
+    if (label === text) { await btn.click(); return true; }
+  }
+  return false;
 }
 
 async function run() {
@@ -99,17 +107,6 @@ async function run() {
       throw new Error('Razorpay iframe never attached — the modal likely never opened. Check the bridge page for a Razorpay init error (open BRIDGE_URL in a real browser tab to see it).');
     }
     console.log(`   Found iframe: ${frame.url()}`);
-
-    async function clickButtonByText(frame, text) {
-      const buttons = await frame.$$('button');
-      for (const btn of buttons) {
-        const label = await frame.evaluate(el => el.textContent.trim(), btn);
-        if (label === text) { await btn.click(); return true; }
-      }
-      return false;
-    }
-    
-    // ...inside run(), right after "Found iframe: ..." and before step 4:
     
     console.log('3b. Handling contact-details screen (if shown)...');
     const contactInput = await frame.$('input[name="contact"]');
@@ -161,7 +158,10 @@ async function run() {
     await cvv.el.type(TEST_CARD_CVV, { delay: 50 });
 
     const name = await findFirstMatch(frame, NAME_SELECTORS, 2000);
-    if (name) await name.el.type(TEST_CARD_NAME, { delay: 50 }); // optional on some forms, don't fail if absent
+    if (name) {
+      await name.el.click({ clickCount: 3 }); // select existing value first
+      await name.el.type(TEST_CARD_NAME, { delay: 50 });
+    }
 
     console.log('5. Submitting payment...');
     async function findSubmitButton(frame) {
@@ -191,10 +191,9 @@ async function run() {
   } catch (err) {
     console.error('\n❌ Headless execution failed:', err.message);
   } finally {
-    console.log('\n⏸  Paused — browser left open. Manually click into the mobile number field,');
-    console.log('   clear it, and type 9876543211 yourself with your own keyboard/mouse.');
-    console.log('   Press Ctrl+C in this terminal when you\'re done looking.');
-    await new Promise(() => {}); // hang forever, don't close
+    console.log('\nClosing browser in 5 seconds...');
+    await new Promise(r => setTimeout(r, 5000));
+    await browser.close();
   }
 }
 
