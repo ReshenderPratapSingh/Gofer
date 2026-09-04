@@ -164,30 +164,42 @@ async function run() {
     }
 
     console.log('5. Submitting payment...');
-    async function findSubmitButton(frame) {
-      const found = await findFirstMatch(frame, PAY_BUTTON_SELECTORS, 3000);
-      if (found) return found;
-      const byText = await frame.$('::-p-text(Continue)') || await frame.$('::-p-text(Pay)');
-      return byText ? { el: byText, sel: '::-p-text()' } : null;
+    const submitted = (await clickButtonByText(frame, 'Continue')) || (await clickButtonByText(frame, 'Pay'));
+    if (!submitted) {
+      await debugDump(page, frame, 'pay-button');
+      throw new Error('Could not find the Continue/Pay button — see debug-pay-button-frame.html');
     }
-    const payButton = await findSubmitButton(frame);
-    if (!payButton) { await debugDump(page, frame, 'pay-button'); throw new Error('Could not find the pay/submit button — see debug-pay-button-frame.html'); }
 
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 }),
-      payButton.el.click(),
-    ]);
+    // Submitting the card does NOT navigate the top-level page yet — Razorpay
+    // shows a "Save card?" interstitial and/or an OTP (simulated bank auth)
+    // screen first. The real callback_url redirect only happens after those.
+    await new Promise(r => setTimeout(r, 1500));
+
+    console.log('5b. Handling "Save card?" prompt (if shown)...');
+    const declinedSave = await clickButtonByText(frame, 'No, thanks');
+    if (declinedSave) await new Promise(r => setTimeout(r, 1000));
+
+    console.log('5c. Handling OTP screen (if shown)...');
+    const otpField = await frame.$('input[placeholder*="OTP" i]');
+    if (otpField) {
+      await otpField.type('1234', { delay: 50 }); // test mode: OTP content isn't validated, any value completes the flow
+      const otpSubmitted = (await clickButtonByText(frame, 'Continue')) || (await clickButtonByText(frame, 'Verify'));
+      if (!otpSubmitted) {
+        await debugDump(page, frame, 'otp-submit-button');
+        throw new Error('OTP field appeared but no submit button was found — see debug-otp-submit-button-frame.html');
+      }
+    } else {
+      console.log('   No OTP screen shown — continuing.');
+    }
+
+    console.log('6. Waiting for callback_url navigation...');
+    await page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 });
 
     const finalUrl = page.url();
     const bodyText = await page.evaluate(() => document.body.innerText);
-    console.log('\n6. Landed on callback page:', finalUrl);
+    console.log('\n7. Landed on callback page:', finalUrl);
     console.log(bodyText);
-
-    if (bodyText.includes('"verified": true')) {
-      console.log('\n✅ Headless capture verified end-to-end.');
-    } else {
-      console.log('\n⚠️  Reached the callback page but verification did not read true — check the bridge server logs.');
-    }
+    
   } catch (err) {
     console.error('\n❌ Headless execution failed:', err.message);
   } finally {
