@@ -225,6 +225,20 @@ async function run() {
       console.log('   No OTP screen shown — continuing.');
     }
     
+    console.log('6. Waiting for callback_url navigation...');
+    await page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 });
+
+    const finalUrl = page.url();
+    const bodyText = await page.evaluate(() => document.body.innerText);
+    console.log('\n7. Landed on callback page:', finalUrl);
+    console.log(bodyText);
+
+    if (bodyText.includes('"verified": true')) {
+      console.log('\n✅ Headless capture verified end-to-end.');
+    } else {
+      console.log('\n⚠️  Reached the callback page but verification did not read true — check the bridge server logs.');
+    }
+
   } catch (err) {
     console.error('\n❌ Headless execution failed:', err.message);
   } finally {
