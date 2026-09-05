@@ -44,9 +44,10 @@ async function findFirstMatch(frame, selectors, timeoutMs = 3000) {
 async function waitForRazorpayFrame(page, timeoutMs = 20000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const frame = page.frames().find(f =>
-      f.url().includes('api.razorpay.com') || f.url().includes('checkout.razorpay.com')
-    );
+    const frame = page.frames().slice().reverse().find(f => {
+      const detached = typeof f.isDetached === 'function' ? f.isDetached() : false;
+      return !detached && (f.url().includes('api.razorpay.com') || f.url().includes('checkout.razorpay.com'));
+    });
     if (frame) return frame;
     await new Promise(r => setTimeout(r, 300));
   }
@@ -188,38 +189,45 @@ async function run() {
       console.log('   No contact-details screen shown — continuing.');
     }
 
+    console.log('   Re-acquiring Razorpay frame after contact step...');
+    const paymentFrame = await waitForRazorpayFrame(page);
+    if (!paymentFrame) {
+      await debugDump(page, null, 'no-payment-frame');
+      throw new Error('Razorpay frame not found after contact screen — see debug-no-payment-frame.html');
+    }
+
     console.log('3c. Selecting the Cards payment option...');
     try {
-      await frame.waitForSelector('::-p-text(Cards)', { timeout: 8000 });
-      await frame.click('::-p-text(Cards)');
+      await paymentFrame.waitForSelector('::-p-text(Cards)', { timeout: 8000 });
+      await paymentFrame.click('::-p-text(Cards)');
       await new Promise(r => setTimeout(r, 1000));
     } catch (e) {
       console.log('   No separate "Cards" option screen shown — continuing directly.');
     }
 
     console.log('4. Filling card details...');
-    const number = await findFirstMatch(frame, NUMBER_SELECTORS);
-    if (!number) { await debugDump(page, frame, 'number-field'); throw new Error('Could not find card number field — see debug-number-field-frame.html'); }
+    const number = await findFirstMatch(paymentFrame, NUMBER_SELECTORS);
+    if (!number) { await debugDump(page, paymentFrame, 'number-field'); throw new Error('Could not find card number field — see debug-number-field-frame.html'); }
     await number.el.type(TEST_CARD_NUMBER, { delay: 50 });
 
-    const expiry = await findFirstMatch(frame, EXPIRY_SELECTORS);
-    if (!expiry) { await debugDump(page, frame, 'expiry-field'); throw new Error('Could not find expiry field — see debug-expiry-field-frame.html'); }
+    const expiry = await findFirstMatch(paymentFrame, EXPIRY_SELECTORS);
+    if (!expiry) { await debugDump(page, paymentFrame, 'expiry-field'); throw new Error('Could not find expiry field — see debug-expiry-field-frame.html'); }
     await expiry.el.type(TEST_CARD_EXPIRY, { delay: 50 });
 
-    const cvv = await findFirstMatch(frame, CVV_SELECTORS);
-    if (!cvv) { await debugDump(page, frame, 'cvv-field'); throw new Error('Could not find CVV field — see debug-cvv-field-frame.html'); }
+    const cvv = await findFirstMatch(paymentFrame, CVV_SELECTORS);
+    if (!cvv) { await debugDump(page, paymentFrame, 'cvv-field'); throw new Error('Could not find CVV field — see debug-cvv-field-frame.html'); }
     await cvv.el.type(TEST_CARD_CVV, { delay: 50 });
 
-    const name = await findFirstMatch(frame, NAME_SELECTORS, 2000);
+    const name = await findFirstMatch(paymentFrame, NAME_SELECTORS, 2000);
     if (name) {
       await name.el.click({ clickCount: 3 }); // select existing value first
       await name.el.type(TEST_CARD_NAME, { delay: 50 });
     }
 
     console.log('5. Submitting payment...');
-    const submitted = (await clickButtonByText(frame, 'Continue')) || (await clickButtonByText(frame, 'Pay'));
+    const submitted = (await clickButtonByText(paymentFrame, 'Continue')) || (await clickButtonByText(paymentFrame, 'Pay'));
     if (!submitted) {
-      await debugDump(page, frame, 'pay-button');
+      await debugDump(page, paymentFrame, 'pay-button');
       throw new Error('Could not find the Continue/Pay button — see debug-pay-button-frame.html');
     }
 
@@ -229,10 +237,10 @@ async function run() {
     await new Promise(r => setTimeout(r, 1500));
 
     console.log('5b. Handling "Save card?" prompts (if shown)...');
-    const declinedSave1 = await clickButtonByText(frame, 'No, thanks');
+    const declinedSave1 = await clickButtonByText(paymentFrame, 'No, thanks');
     if (declinedSave1) await new Promise(r => setTimeout(r, 1000));
     
-    const declinedSave2 = await clickButtonByText(frame, 'Maybe later');
+    const declinedSave2 = await clickButtonByText(paymentFrame, 'Maybe later');
     if (declinedSave2) await new Promise(r => setTimeout(r, 1000));
 
     console.log('5c. Handling OTP screen (if shown)...');
