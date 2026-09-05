@@ -62,7 +62,7 @@ Using the repository's `Dockerfile` ensures Debian's precompiled Chromium and al
 - **Repository**: `https://github.com/ReshenderPratapSingh/Gofer`
 - **Root Directory**: Leave blank (repository root)
 - **Runtime / Environment**: `Docker`
-- **Dockerfile Path**: `./Dockerfile` (or `./agent/Dockerfile`)
+- **Dockerfile Path**: `./Dockerfile`
 - **Instance Size**: Minimum 512MB RAM, **1GB recommended** (Puppeteer headless browser requires ~300-500MB during card payment submission).
 
 ### Environment Variables
