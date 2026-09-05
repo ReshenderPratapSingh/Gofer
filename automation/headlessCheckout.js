@@ -233,7 +233,7 @@ async function run() {
     console.log('\n7. Landed on callback page:', finalUrl);
     console.log(bodyText);
 
-    if (bodyText.includes('"verified": true')) {
+    if (bodyText.includes('Payment Verified successfully')) {
       console.log('\n✅ Headless capture verified end-to-end.');
     } else {
       console.log('\n⚠️  Reached the callback page but verification did not read true — check the bridge server logs.');
