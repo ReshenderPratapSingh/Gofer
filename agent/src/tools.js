@@ -14,10 +14,10 @@ const toolDeclarations = [
     name: 'search_products',
     description: "Fetches Meera's product catalog from the merchant API, optionally filtered by a keyword.",
     parameters: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
         query: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: 'Optional keyword to filter products by name/description (e.g. "chair").',
         },
       },
@@ -29,11 +29,11 @@ const toolDeclarations = [
     description:
       'Creates a real order for one product via the merchant API. Only call this AFTER request_human_approval has returned approved: true for this exact item.',
     parameters: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        productId: { type: SchemaType.STRING, description: 'The id of the product to order.' },
+        productId: { type: Type.STRING, description: 'The id of the product to order.' },
         agentReasoning: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: 'Plain-language explanation of why THIS product was chosen over alternatives. Never a placeholder.',
         },
       },
@@ -45,12 +45,12 @@ const toolDeclarations = [
     description:
       'Pauses and asks Rohan to explicitly approve a specific purchase before any money moves. Must be called before every place_order, regardless of amount.',
     parameters: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        itemName: { type: SchemaType.STRING, description: 'Human-readable name of the item.' },
-        amountPaise: { type: SchemaType.NUMBER, description: 'Price in paise (not rupees).' },
+        itemName: { type: Type.STRING, description: 'Human-readable name of the item.' },
+        amountPaise: { type: Type.NUMBER, description: 'Price in paise (not rupees).' },
         agentReasoning: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: 'Why you are asking approval for this specific item at this price.',
         },
       },
@@ -62,9 +62,9 @@ const toolDeclarations = [
     description:
       "Drives Meera's real checkout to completion for an already-created order, headlessly. Only call this after place_order has succeeded.",
     parameters: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        orderId: { type: SchemaType.STRING, description: 'The orderId returned by place_order.' },
+        orderId: { type: Type.STRING, description: 'The orderId returned by place_order.' },
       },
       required: ['orderId'],
     },
@@ -74,9 +74,9 @@ const toolDeclarations = [
     description:
       'Ends the shopping session with no further tool calls. Use this when nothing in-budget matches, or when Rohan declines approval.',
     parameters: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        reason: { type: SchemaType.STRING, description: 'Plain-language reason the transaction is being aborted.' },
+        reason: { type: Type.STRING, description: 'Plain-language reason the transaction is being aborted.' },
       },
       required: ['reason'],
     },
