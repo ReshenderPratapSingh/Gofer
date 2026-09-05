@@ -182,6 +182,12 @@ export default function App() {
       }
     }
 
+    if (type === 'run_error') {
+      setResolvedState('failed');
+      setIsRunning(false);
+      setIsAwaitingApproval(false);
+    }
+
     if (type === 'run_complete') {
       setIsRunning(false);
       setIsAwaitingApproval(false);

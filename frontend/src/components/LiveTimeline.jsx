@@ -50,6 +50,14 @@ export default function LiveTimeline({
         text: ev.data?.text,
         timestamp: ev.timestamp || new Date().toLocaleTimeString('en-IN', { hour12: false }),
       });
+    } else if (ev.type === 'run_error') {
+      renderedSteps.push({
+        id: `err-${idx}`,
+        name: 'run_error',
+        args: {},
+        error: ev.data?.error || 'Execution encountered an unexpected error.',
+        timestamp: ev.timestamp || new Date().toLocaleTimeString('en-IN', { hour12: false }),
+      });
     }
   });
 
@@ -78,6 +86,29 @@ export default function LiveTimeline({
       ) : (
         <div className="space-y-6 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-outline">
           {renderedSteps.map((step, index) => {
+            if (step.name === 'run_error') {
+              return (
+                <div key={step.id || index} className="relative pl-7 group">
+                  <div className="absolute left-0 top-1 w-[23px] h-[23px] rounded-full bg-surface border border-danger text-danger flex items-center justify-center text-xs">
+                    <span className="material-symbols-outlined text-[13px]">error</span>
+                  </div>
+                  <div className="bg-surface-low border border-danger/40 rounded p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-semibold text-danger">
+                        Execution Error
+                      </span>
+                      <span className="text-on-surface-muted text-[11px] font-mono">
+                        {step.timestamp}
+                      </span>
+                    </div>
+                    <p className="text-xs text-danger font-mono whitespace-pre-wrap break-all">
+                      {typeof step.error === 'object' ? JSON.stringify(step.error, null, 2) : step.error}
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
             const icon = getToolIcon(step.name);
             const isCompletePayment = step.name === 'complete_payment';
             const isApproval = step.name === 'request_human_approval';

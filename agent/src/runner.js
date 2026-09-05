@@ -37,17 +37,42 @@ async function runGoferAgent({
   }
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+  const candidateModels = [
+    process.env.GEMINI_MODEL,
+    'gemini-3.7-flash',
+    'gemini-flash-latest',
+    'gemini-3.6-flash',
+  ].filter(Boolean);
+  const uniqueModels = [...new Set(candidateModels)];
 
-  const chat = ai.chats.create({
-    model: modelName,
-    config: {
-      systemInstruction: SYSTEM_INSTRUCTION,
-      tools: [{ functionDeclarations: toolDeclarations }],
-    },
-  });
+  let chat = null;
+  let response = null;
+  let lastError = null;
 
-  let response = await chat.sendMessage({ message: userRequest });
+  for (const model of uniqueModels) {
+    try {
+      console.log(`[runner] Attempting session with model: ${model}`);
+      chat = ai.chats.create({
+        model,
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          tools: [{ functionDeclarations: toolDeclarations }],
+        },
+      });
+      response = await chat.sendMessage({ message: userRequest });
+      console.log(`[runner] Successfully connected with ${model}`);
+      lastError = null;
+      break;
+    } catch (err) {
+      console.warn(`[runner] Model ${model} failed (${err.message}). Trying fallback if available...`);
+      lastError = err;
+    }
+  }
+
+  if (!response) {
+    throw lastError || new Error('All candidate Gemini models failed to respond.');
+  }
+
   let terminal = false;
 
   const context = {
