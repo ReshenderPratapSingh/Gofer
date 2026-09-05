@@ -261,6 +261,25 @@ app.post('/api/payments/verify', async (req, res) => {
   res.status(400).send('Signature mismatch');
 });
 
+// ==========================================
+// 6. POST /api/audit — for agent-side events that aren't money-moving
+// ==========================================
+const AGENT_LOGGABLE_ACTIONS = ['SEARCH', 'APPROVAL_REQUESTED', 'APPROVAL_GRANTED', 'APPROVAL_DENIED'];
+
+app.post('/api/audit', async (req, res) => {
+  const { orderId, action, reasoning, metadata } = req.body;
+  if (!action || !reasoning) {
+    return res.status(400).json({ error: 'action and reasoning are required' });
+  }
+  if (!AGENT_LOGGABLE_ACTIONS.includes(action)) {
+    return res.status(400).json({ error: 'invalid_action', allowed: AGENT_LOGGABLE_ACTIONS });
+  }
+  const row = await prisma.auditLog.create({
+    data: { orderId: orderId || null, action, reasoning, metadata: metadata || undefined },
+  });
+  res.status(201).json(row);
+});
+
 app.listen(PORT, () => {
     console.log(`Merchant server running on http://localhost:${PORT}`);
     console.log(`Budget wall: MAX_BUDGET_PAISE=${MAX_BUDGET_PAISE} (₹${MAX_BUDGET_PAISE / 100})`);
