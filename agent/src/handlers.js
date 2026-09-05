@@ -51,7 +51,7 @@ async function placeOrder({ productId, agentReasoning }) {
   return { success: true, ...data };
 }
 
-async function requestHumanApproval({ itemName, amountPaise, agentReasoning }) {
+async function requestHumanApproval({ itemName, amountPaise, agentReasoning }, context) {
   await logAudit({
     action: 'APPROVAL_REQUESTED',
     reasoning: agentReasoning,
@@ -59,8 +59,14 @@ async function requestHumanApproval({ itemName, amountPaise, agentReasoning }) {
   });
 
   const rupees = (amountPaise / 100).toLocaleString('en-IN');
-  const answer = await ask(`\nGofer wants to buy ${itemName} for ₹${rupees}. Approve? (y/n) `);
-  const approved = answer === 'y' || answer === 'yes';
+  let approved;
+
+  if (context && typeof context.askApproval === 'function') {
+    approved = await context.askApproval({ itemName, amountPaise, agentReasoning });
+  } else {
+    const answer = await ask(`\nGofer wants to buy ${itemName} for ₹${rupees}. Approve? (y/n) `);
+    approved = answer === 'y' || answer === 'yes';
+  }
 
   await logAudit({
     action: approved ? 'APPROVAL_GRANTED' : 'APPROVAL_DENIED',
@@ -73,7 +79,7 @@ async function requestHumanApproval({ itemName, amountPaise, agentReasoning }) {
   return { approved };
 }
 
-async function completePayment({ orderId }) {
+async function completePayment({ orderId }, context) {
   const checkoutUrl = `${MERCHANT_BASE_URL}/checkout/${orderId}`;
   const scriptPath = path.resolve(__dirname, '..', '..', 'automation', 'headlessCheckout.js');
 
@@ -83,8 +89,25 @@ async function completePayment({ orderId }) {
     const child = spawn('node', [scriptPath], {
       cwd: path.dirname(scriptPath),
       env: { ...process.env, BRIDGE_URL: checkoutUrl },
-      stdio: 'inherit', // let the live automation log print to this same terminal
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
+
+    const rlOut = readline.createInterface({ input: child.stdout });
+    rlOut.on('line', (line) => {
+      console.log(`[headless] ${line}`);
+      if (context && typeof context.onProgress === 'function') {
+        context.onProgress(line);
+      }
+    });
+
+    const rlErr = readline.createInterface({ input: child.stderr });
+    rlErr.on('line', (line) => {
+      console.error(`[headless:err] ${line}`);
+      if (context && typeof context.onProgress === 'function') {
+        context.onProgress(line);
+      }
+    });
+
     child.on('exit', (code) => {
       resolve({ completed: code === 0, exitCode: code });
     });

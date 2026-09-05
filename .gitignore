@@ -15,4 +15,6 @@ dist/
 .windsurf/
 
 **automation/debug/
-**automation/debug/
+
+# Reference folder ignore
+stitch_gofer/
