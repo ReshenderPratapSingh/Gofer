@@ -129,7 +129,7 @@ async function run() {
 
   try {
     console.log('2. Navigating to bridge page...');
-    await page.goto(BRIDGE_URL, { waitUntil: 'networkidle0' });
+    await page.goto(BRIDGE_URL, { waitUntil: 'domcontentloaded' });
 
     console.log('3. Waiting for Razorpay iframe...');
     const frame = await waitForRazorpayFrame(page);
