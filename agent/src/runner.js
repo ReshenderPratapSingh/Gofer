@@ -39,11 +39,39 @@ async function runGoferAgent({
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const candidateModels = [
     process.env.GEMINI_MODEL,
+    'gemini-3.8-flash',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
     'gemini-3.7-flash',
-    'gemini-flash-latest',
     'gemini-3.6-flash',
   ].filter(Boolean);
   const uniqueModels = [...new Set(candidateModels)];
+
+  async function sendMessageWithRetry(chatSession, payload, maxRetries = 3) {
+    let errToThrow;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await chatSession.sendMessage({ message: payload });
+      } catch (err) {
+        errToThrow = err;
+        const msg = err.message || '';
+        const isTransient =
+          err?.status === 503 ||
+          err?.code === 503 ||
+          msg.includes('503') ||
+          msg.includes('high demand') ||
+          msg.includes('UNAVAILABLE');
+        if (isTransient && attempt < maxRetries) {
+          const delay = attempt * 1500;
+          console.warn(`[runner] Transient error from Gemini (${msg}). Retrying in ${delay}ms (attempt ${attempt}/${maxRetries})...`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw errToThrow;
+  }
 
   let chat = null;
   let response = null;
@@ -59,7 +87,7 @@ async function runGoferAgent({
           tools: [{ functionDeclarations: toolDeclarations }],
         },
       });
-      response = await chat.sendMessage({ message: userRequest });
+      response = await sendMessageWithRetry(chat, userRequest);
       console.log(`[runner] Successfully connected with ${model}`);
       lastError = null;
       break;
@@ -120,7 +148,7 @@ async function runGoferAgent({
 
     if (terminal) break;
 
-    response = await chat.sendMessage({ message: functionResponseParts });
+    response = await sendMessageWithRetry(chat, functionResponseParts);
   }
 
   onEvent('run_complete', {});
