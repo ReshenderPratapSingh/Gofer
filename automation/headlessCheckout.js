@@ -156,12 +156,19 @@ async function run() {
     }
     console.log(`   Found iframe: ${frame.url()}`);
     
-    console.log('3b. Handling contact-details screen (if shown)...');
+    console.log('3b. Detecting checkout screen...');
     let contactInput = null;
-    try {
-      contactInput = await frame.waitForSelector('input[name="contact"], input[placeholder*="Mobile" i]', { timeout: 4000 });
-    } catch (_) {
-      // Not shown or already on payment method screen
+    const startDetect = Date.now();
+    while (Date.now() - startDetect < 15000) {
+      contactInput = await frame.$('input[name="contact"], input[data-testid="contactNumber"], input[placeholder*="Mobile" i]');
+      if (contactInput) break;
+
+      const hasCards = (await frame.$('::-p-text(Cards)')) || (await findFirstMatch(frame, NUMBER_SELECTORS, 100));
+      if (hasCards) {
+        console.log('   Directly landed on payment screen without contact form.');
+        break;
+      }
+      await new Promise(r => setTimeout(r, 400));
     }
 
     if (contactInput) {
@@ -176,7 +183,15 @@ async function run() {
       }
     
       console.log('   Clicked Continue on contact form.');
-      await new Promise(r => setTimeout(r, 2000)); // let the SPA transition screens
+
+      // Wait for contact form to transition away
+      const startTransition = Date.now();
+      while (Date.now() - startTransition < 10000) {
+        const stillContact = await frame.$('input[name="contact"], input[placeholder*="Mobile" i]');
+        if (!stillContact) break;
+        await new Promise(r => setTimeout(r, 300));
+      }
+      await new Promise(r => setTimeout(r, 1000));
     
       // Best-effort: some flows add a mobile-OTP step after Continue
       const otpInput = await frame.$('input[name="otp"], input[data-testid="otp"]');
@@ -206,7 +221,7 @@ async function run() {
     }
 
     console.log('4. Filling card details...');
-    const number = await findFirstMatch(paymentFrame, NUMBER_SELECTORS);
+    const number = await findFirstMatch(paymentFrame, NUMBER_SELECTORS, 8000);
     if (!number) { await debugDump(page, paymentFrame, 'number-field'); throw new Error('Could not find card number field — see debug-number-field-frame.html'); }
     await number.el.type(TEST_CARD_NUMBER, { delay: 50 });
 
