@@ -123,6 +123,7 @@ async function run() {
     ],
   });
   const page = await browser.newPage();
+  await page.setViewport({ width: 1280, height: 800 });
   await page.evaluateOnNewDocument(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
@@ -140,8 +141,15 @@ async function run() {
     console.log(`   Found iframe: ${frame.url()}`);
     
     console.log('3b. Handling contact-details screen (if shown)...');
-    const contactInput = await frame.$('input[name="contact"]');
+    let contactInput = null;
+    try {
+      contactInput = await frame.waitForSelector('input[name="contact"], input[placeholder*="Mobile" i]', { timeout: 4000 });
+    } catch (_) {
+      // Not shown or already on payment method screen
+    }
+
     if (contactInput) {
+      console.log('   Contact form detected. Filling mobile number...');
       await contactInput.click({ clickCount: 3 }); // clear any stale value first
       await contactInput.type('9876543211', { delay: 50 });
     
@@ -151,11 +159,10 @@ async function run() {
         throw new Error('Contact form appeared but no Continue button was found — see debug-no-continue-button-frame.html');
       }
     
-      await new Promise(r => setTimeout(r, 1500)); // let the SPA transition screens
+      console.log('   Clicked Continue on contact form.');
+      await new Promise(r => setTimeout(r, 2000)); // let the SPA transition screens
     
-      // Best-effort, UNVERIFIED: some flows add a mobile-OTP step after Continue.
-      // Test mode usually doesn't send a real SMS and often accepts any code —
-      // but I haven't seen this fire, so if it blocks you, send me the dump.
+      // Best-effort: some flows add a mobile-OTP step after Continue
       const otpInput = await frame.$('input[name="otp"], input[data-testid="otp"]');
       if (otpInput) {
         await otpInput.type('0000', { delay: 50 });
