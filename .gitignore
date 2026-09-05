@@ -14,7 +14,8 @@ dist/
 .claude/
 .windsurf/
 
-**automation/debug/
+automation/debug/
+automation/debug-*
 
 # Reference folder ignore
 stitch_gofer/
