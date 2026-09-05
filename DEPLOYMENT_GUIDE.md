@@ -70,7 +70,7 @@ Configure these in the hosting dashboard:
 | Variable | Value / Description |
 | :--- | :--- |
 | `GEMINI_API_KEY` | Your Google Gemini API Key |
-| `GEMINI_MODEL` | `gemini-2.5-flash` |
+| `GEMINI_MODEL` | `gemini-3.6-flash` |
 | `MERCHANT_BASE_URL` | Deployed Merchant HTTPS URL (e.g. `https://gofer-merchant.onrender.com`) |
 | `FRONTEND_URL` | Deployed frontend URL (e.g. `https://gofer.vercel.app`) |
 | `HEADLESS` | `true` |
