@@ -1,14 +1,11 @@
 // automation/headlessCheckout.js
 //
-// Phase 2: drives the real Razorpay Checkout (via merchant/src/checkoutBridge.js)
+// Drives the real Razorpay Checkout (via merchant/server.js /checkout/:orderId)
 // end-to-end with zero human interaction, using a real Razorpay test card.
 //
 // Prereqs:
-//   1. merchant/src/checkoutBridge.js running in another terminal
-//   2. Inside automation/:  npm install puppeteer
-//      (plain `puppeteer`, not `puppeteer-core` — puppeteer bundles Chromium
-//      so you don't have to manage an executablePath yourself. If your
-//      package.json currently has puppeteer-core, swap it.)
+//   1. merchant/server.js running (PORT 3000)
+//   2. Inside automation/: npm install puppeteer
 //
 // Run: node headlessCheckout.js
 
@@ -16,7 +13,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
-const BRIDGE_URL = process.env.BRIDGE_URL || 'http://localhost:4000/checkout/test';
+const BRIDGE_URL = process.env.BRIDGE_URL || 'http://localhost:3000/checkout/test';
 const TEST_CARD_NUMBER = '5267318187975449';
 const TEST_CARD_EXPIRY = '12/30';
 const TEST_CARD_CVV = '123';
