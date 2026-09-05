@@ -5,7 +5,8 @@
 // project's architecture (any AI buyer should be able to shop through this
 // same public API, not just Gofer).
 
-const MERCHANT_BASE_URL = process.env.MERCHANT_BASE_URL || 'http://localhost:3000';
+const rawUrl = process.env.MERCHANT_BASE_URL || 'http://localhost:3000';
+const MERCHANT_BASE_URL = rawUrl.replace(/\/+$/, '');
 
 async function getProducts() {
   const res = await fetch(`${MERCHANT_BASE_URL}/api/products`);

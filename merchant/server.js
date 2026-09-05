@@ -23,7 +23,35 @@ const MAX_BUDGET_PAISE = Number(process.env.MAX_BUDGET_PAISE || 900000);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// Derive public base URL dynamically (respects reverse proxies like Render/Railway)
+function getBaseUrl(req) {
+  if (process.env.PUBLIC_BASE_URL) {
+    return process.env.PUBLIC_BASE_URL.replace(/\/+$/, '');
+  }
+  const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  const host = req.headers['x-forwarded-host'] || req.get('host');
+  return `${proto}://${host}`;
+}
+
+// Strict exact-match CORS whitelist (never prefix-matched)
+const allowedOrigins = new Set(
+  ['http://localhost:5173', process.env.FRONTEND_URL]
+    .filter(Boolean)
+    .map((o) => o.replace(/\/+$/, ''))
+);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, server-to-server, webhook, etc.)
+      if (!origin || allowedOrigins.has(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+  })
+);
 
 if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
   console.error('❌ RAZORPAY_WEBHOOK_SECRET is not set — webhook verification cannot work.');
@@ -164,7 +192,7 @@ app.post('/api/orders', async (req, res) => {
       orderId: order.id,
       razorpayOrderId: razorpayOrder.id,
       amountInPaise: product.priceInPaise,
-      checkoutUrl: `http://localhost:${PORT}/checkout/${order.id}`,
+      checkoutUrl: `${getBaseUrl(req)}/checkout/${order.id}`,
     });
   } catch (err) {
     console.error('❌ [ORDERS] Failed to create Razorpay order:', err.message);
@@ -195,7 +223,7 @@ app.get('/checkout/:orderId', async (req, res) => {
       name: "Gofer / Meera's Store",
       description: ${JSON.stringify(order.product.name)},
       order_id: "${order.razorpayOrderId}",
-      callback_url: "http://localhost:${PORT}/api/payments/verify",
+      callback_url: "${getBaseUrl(req)}/api/payments/verify",
       redirect: true,
       config: {
         display: {
@@ -311,9 +339,6 @@ app.get('/api/audit-trail', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Merchant server running on http://localhost:${PORT}`);
-    console.log(`Budget wall: MAX_BUDGET_PAISE=${MAX_BUDGET_PAISE} (₹${MAX_BUDGET_PAISE / 100})`);
-  });
-  
-  // Keep-alive: guarantees the event loop never empties, so the server stays up.
-  setInterval(() => {}, 1 << 30);
+  console.log(`Merchant server running on port ${PORT}`);
+  console.log(`Budget wall: MAX_BUDGET_PAISE=${MAX_BUDGET_PAISE} (₹${MAX_BUDGET_PAISE / 100})`);
+});

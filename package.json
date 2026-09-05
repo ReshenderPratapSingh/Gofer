@@ -1,0 +1,15 @@
+{
+  "name": "gofer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gofer — Autonomous Purchasing Agent for Razorpay Hackathon",
+  "scripts": {
+    "install:all": "npm install --prefix merchant && npm install --prefix agent && npm install --prefix automation && npm install --prefix frontend",
+    "build:merchant": "npm run build --prefix merchant",
+    "build:frontend": "npm run build --prefix frontend",
+    "start:merchant": "node merchant/server.js",
+    "start:agent": "node agent/src/server.js",
+    "start:agent:cli": "node agent/src/index.js",
+    "start:frontend": "npm run dev --prefix frontend"
+  }
+}

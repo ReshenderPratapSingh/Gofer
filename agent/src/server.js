@@ -12,8 +12,25 @@ const { runGoferAgent } = require('./runner');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Permissive CORS for local dev (will be tightened for deployed frontend in Phase 8)
-app.use(cors());
+// Strict exact-match CORS whitelist (never prefix-matched)
+const allowedOrigins = new Set(
+  ['http://localhost:5173', process.env.FRONTEND_URL]
+    .filter(Boolean)
+    .map((o) => o.replace(/\/+$/, ''))
+);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, server-to-server, etc.)
+      if (!origin || allowedOrigins.has(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // In-memory session store: Map<sessionId, Session>
@@ -117,8 +134,9 @@ app.get('/api/sessions/:id/events', (req, res) => {
   }
 
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   if (typeof res.flushHeaders === 'function') {
     res.flushHeaders();
   }

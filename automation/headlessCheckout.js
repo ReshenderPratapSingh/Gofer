@@ -112,10 +112,18 @@ async function findFieldInAnyFrame(page, selector, timeoutMs = 10000) {
 }
 
 async function run() {
-  console.log('1. Launching browser (headless mode off for debugging)...');
+  const isHeadless = process.env.HEADLESS !== 'false';
+  console.log(`1. Launching browser (headless: ${isHeadless})...`);
   const browser = await puppeteer.launch({
-    headless: false, // flip to true once this is reliable
-    args: ['--disable-blink-features=AutomationControlled'],
+    headless: isHeadless,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-blink-features=AutomationControlled',
+    ],
   });
   const page = await browser.newPage();
   await page.evaluateOnNewDocument(() => {
