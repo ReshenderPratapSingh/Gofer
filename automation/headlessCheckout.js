@@ -226,10 +226,26 @@ async function run() {
     }
     
     console.log('6. Waiting for callback_url navigation...');
-    await page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 });
+    const startNav = Date.now();
+    let navigated = false;
+    while (Date.now() - startNav < 30000) {
+      if (page.url().includes('/api/payments/verify')) {
+        navigated = true;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+
+    if (!navigated) {
+      try {
+        await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 });
+      } catch (_) {
+        // Handled below by checking URL and bodyText
+      }
+    }
 
     const finalUrl = page.url();
-    const bodyText = await page.evaluate(() => document.body.innerText);
+    const bodyText = await page.evaluate(() => document.body.innerText).catch(() => '');
     console.log('\n7. Landed on callback page:', finalUrl);
     console.log(bodyText);
 
@@ -237,14 +253,19 @@ async function run() {
       console.log('\n✅ Headless capture verified end-to-end.');
     } else {
       console.log('\n⚠️  Reached the callback page but verification did not read true — check the bridge server logs.');
+      process.exitCode = 1;
     }
 
   } catch (err) {
     console.error('\n❌ Headless execution failed:', err.message);
+    process.exitCode = 1;
   } finally {
     console.log('\nClosing browser in 5 seconds...');
-    await new Promise(r => setTimeout(r, 5000));
+    await new Promise((r) => setTimeout(r, 5000));
     await browser.close();
+    if (process.exitCode && process.exitCode !== 0) {
+      process.exit(process.exitCode);
+    }
   }
 }
 

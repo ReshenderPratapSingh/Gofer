@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const { PrismaPg } = require('@prisma/adapter-pg');
@@ -21,6 +22,8 @@ const MAX_BUDGET_PAISE = Number(process.env.MAX_BUDGET_PAISE || 900000);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+app.use(cors());
 
 if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
   console.error('❌ RAZORPAY_WEBHOOK_SECRET is not set — webhook verification cannot work.');
@@ -278,6 +281,33 @@ app.post('/api/audit', async (req, res) => {
     data: { orderId: orderId || null, action, reasoning, metadata: metadata || undefined },
   });
   res.status(201).json(row);
+});
+
+// ==========================================
+// 7. GET /api/config — dynamic config & budget cap
+// ==========================================
+app.get('/api/config', (req, res) => {
+  res.json({
+    maxBudgetPaise: MAX_BUDGET_PAISE,
+    currency: 'INR',
+    storeName: "Meera's Store",
+  });
+});
+
+// ==========================================
+// 8. GET /api/audit-trail — chronological audit log with orders & products
+// ==========================================
+app.get('/api/audit-trail', async (req, res) => {
+  try {
+    const logs = await prisma.auditLog.findMany({
+      orderBy: { createdAt: 'asc' },
+      include: { order: { include: { product: true } } },
+    });
+    res.json(logs);
+  } catch (err) {
+    console.error('❌ Failed to fetch audit trail:', err.message);
+    res.status(500).json({ error: 'failed_to_fetch_audit_trail' });
+  }
 });
 
 app.listen(PORT, () => {
