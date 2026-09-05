@@ -3,7 +3,10 @@ node_modules/
 **/node_modules/
 .env
 **/.env
-.env.*
+.env.local
+.env.*.local
+!.env.example
+!**/.env.example
 
 # Standard ignores
 dist/
