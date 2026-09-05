@@ -44,7 +44,7 @@ async function findFirstMatch(frame, selectors, timeoutMs = 3000) {
 async function waitForRazorpayFrame(page, timeoutMs = 20000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const frame = page.frames().slice().reverse().find(f => {
+    const frame = page.frames().find(f => {
       const detached = typeof f.isDetached === 'function' ? f.isDetached() : false;
       return !detached && (f.url().includes('api.razorpay.com') || f.url().includes('checkout.razorpay.com'));
     });
