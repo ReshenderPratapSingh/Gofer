@@ -75,14 +75,17 @@ async function debugDump(page, frame, label) {
   }
 }
 
-async function clickButtonByText(frame, text) {
+async function clickButtonByText(frame, text, exact = false) {
   const buttons = await frame.$$('button');
   for (const btn of buttons) {
     const info = await frame.evaluate(el => {
       const rect = el.getBoundingClientRect();
       return { text: el.textContent.trim(), visible: rect.width > 0 && rect.height > 0 && !el.disabled };
     }, btn);
-    if (info.text === text && info.visible) {
+    const matches = exact
+      ? info.text === text
+      : (info.text === text || info.text.toLowerCase().includes(text.toLowerCase()));
+    if (matches && info.visible) {
       try {
         await btn.click();
       } catch (e) {
@@ -221,12 +224,13 @@ async function run() {
     if (declinedSave2) await new Promise(r => setTimeout(r, 1000));
 
     console.log('5c. Handling OTP screen (if shown)...');
-    const otpMatch = await findFieldInAnyFrame(page, 'input[placeholder*="OTP" i]', 10000);
+    const otpMatch = await findFieldInAnyFrame(page, 'input[placeholder*="OTP" i]', 8000);
     if (otpMatch) {
       await otpMatch.el.type('123456', { delay: 50 }); // test mode: content isn't validated, any value completes the flow
       const otpSubmitted =
-        (await clickButtonByText(otpMatch.frame, 'Continue')) ||
+        (await clickButtonByText(otpMatch.frame, 'Success')) ||
         (await clickButtonByText(otpMatch.frame, 'Submit')) ||
+        (await clickButtonByText(otpMatch.frame, 'Continue')) ||
         (await clickButtonByText(otpMatch.frame, 'Verify'));
       if (!otpSubmitted) {
         await debugDump(page, otpMatch.frame, 'otp-submit-button');
@@ -234,7 +238,18 @@ async function run() {
       }
       await new Promise(r => setTimeout(r, 1500));
     } else {
-      console.log('   No OTP screen shown — continuing.');
+      // Check if a direct bank emulator "Success" button is present without OTP input
+      let emulatorSuccess = false;
+      for (const f of page.frames()) {
+        if (await clickButtonByText(f, 'Success')) {
+          emulatorSuccess = true;
+          console.log('   Clicked bank emulator "Success" button.');
+          break;
+        }
+      }
+      if (!emulatorSuccess) {
+        console.log('   No OTP screen or emulator button shown — continuing.');
+      }
     }
     
     console.log('6. Waiting for callback_url navigation...');
